@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sport Marks</title>
+<meta name="description" content="Tus ejercicios y tus marcas, siempre a mano.">
+<meta name="theme-color" content="#0e0f12">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sport Marks">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M4 7h8M18 7h2M4 17h2M12 17h8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="15" cy="7" r="2.6" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="9" cy="17" r="2.6" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z" fill="currentColor"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-dumbbell" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="11" width="12" height="2" rx="1"/><rect x="4.4" y="6.2" width="3" height="11.6" rx="1.2"/><rect x="16.6" y="6.2" width="3" height="11.6" rx="1.2"/><rect x="1.8" y="8.4" width="2.2" height="7.2" rx="1"/><rect x="20" y="8.4" width="2.2" height="7.2" rx="1"/></g></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5M7 9.5l5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.5 18.5h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- ═══ INICIO ═══ -->
+<div class="view home" id="home">
+  <header class="hero">
+    <div class="hero-row">
+      <div>
+        <p class="eyebrow" id="today"></p>
+        <h1 class="hello"><span id="helloName">Juan</span><span class="hello-dot">.</span></h1>
+      </div>
+      <button class="icon-btn" id="btnSettings" aria-label="Ajustes"><svg><use href="#i-gear"/></svg></button>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="toolbar" id="toolbar">
+    <label class="search">
+      <svg><use href="#i-search"/></svg>
+      <input id="search" type="search" placeholder="Buscar ejercicio" autocomplete="off" enterkeyhint="search">
+    </label>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <main class="list" id="list"></main>
+
+  <button class="fab" id="fab" aria-label="Nuevo ejercicio"><svg><use href="#i-plus"/></svg><span>Ejercicio</span></button>
+</div>
+
+<!-- ═══ DETALLE ═══ -->
+<section class="view detail" id="detail" aria-hidden="true"></section>
+
+<!-- ═══ HOJAS ═══ -->
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true">
+  <div class="sheet-grip" id="sheetGrip"><span></span></div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+<input type="file" id="importFile" hidden>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>
