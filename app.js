@@ -3,7 +3,7 @@
   /* ═════════════ Constantes ═════════════ */
   const KEY = 'sportmarks_v1';
   const KEY_INSTALL = 'sportmarks_install_oculto';
-  const VERSION = '1.0';
+  const VERSION = '1.1';
   const PALETTE = ['#FF5A36', '#FFB020', '#D4FF3A', '#3DDC97', '#36C2FF', '#6C8CFF', '#B78BFF', '#FF5FA2'];
   const NO_CAT = { id: null, name: 'Sin categoría', color: '#8C92A1' };
   const TYPES = {
@@ -15,6 +15,8 @@
   };
   const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const MONTHS_LONG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const DAYS_LONG = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   /* ═════════════ Utilidades ═════════════ */
   const $ = (s, r = document) => r.querySelector(s);
@@ -71,6 +73,7 @@
         { id: 'movilidad', name: 'Movilidad', color: '#3DDC97' },
       ],
       exercises: [],
+      weights: [],
     };
   }
 
@@ -99,6 +102,11 @@
               note: typeof m.note === 'string' ? m.note.slice(0, 200) : '',
             })),
         })),
+      // Peso corporal: un registro por día (las copias de la v1.0 no lo traen)
+      weights: Object.values(Object.fromEntries((Array.isArray(s.weights) ? s.weights : [])
+        .filter(w => w && /^\d{4}-\d{2}-\d{2}$/.test(w.date) && finite(w.kg) > 0)
+        .map(w => [w.date, { date: w.date, kg: w.kg }])))
+        .sort((a, b) => a.date.localeCompare(b.date)),
     };
   }
 
@@ -353,14 +361,16 @@
     renderDetail();
     el.classList.add('open');
     el.setAttribute('aria-hidden', 'false');
-    $('#home').inert = true;
+    $('#pager').inert = true;
+    $('#tabbar').inert = true;
     document.body.classList.add('locked');
   }
   function closeDetail() {
     const el = $('#detail');
     el.classList.remove('open');
     el.setAttribute('aria-hidden', 'true');
-    $('#home').inert = false;
+    $('#pager').inert = false;
+    $('#tabbar').inert = false;
     document.body.classList.remove('locked');
     currentId = null;
   }
@@ -592,19 +602,30 @@
   }
 
   /* ═════════════ Formulario de marca ═════════════ */
+  const stepper = (id, label, value, step, mode = 'decimal', ph = '0') => `
+      <div class="field"><label class="lbl" for="${id}">${label}</label>
+        <div class="stepper">
+          <button type="button" data-step="-${step}" data-for="${id}" aria-label="Restar ${step}">−${String(step).replace('.', ',')}</button>
+          <input class="input" id="${id}" inputmode="${mode}" autocomplete="off" enterkeyhint="done" placeholder="${ph}" value="${value}">
+          <button type="button" data-step="${step}" data-for="${id}" aria-label="Sumar ${step}">+${String(step).replace('.', ',')}</button>
+        </div></div>`;
+  function bindSteppers(b, onChange) {
+    b.addEventListener('click', e => {
+      const t = e.target.closest('[data-step]');
+      if (!t) return;
+      const input = b.querySelector('#' + t.dataset.for);
+      const next = Math.max(0, Math.round(((num(input.value) || 0) + Number(t.dataset.step)) * 100) / 100);
+      input.value = inputNum(next);
+      onChange();
+    });
+  }
+
   function markForm(exId, markId) {
     const ex = getEx(exId);
     if (!ex) return;
     const mark = markId ? ex.marks.find(m => m.id === markId) : null;
     const a = analyze(ex);
     const base = mark || a.last; // una marca nueva parte de la última para ir más rápido
-    const stepper = (id, label, value, step, mode = 'decimal', ph = '0') => `
-      <div class="field"><label class="lbl" for="${id}">${label}</label>
-        <div class="stepper">
-          <button type="button" data-step="-${step}" data-for="${id}" aria-label="Restar ${step}">−${String(step).replace('.', ',')}</button>
-          <input class="input" id="${id}" inputmode="${mode}" autocomplete="off" placeholder="${ph}" value="${value}">
-          <button type="button" data-step="${step}" data-for="${id}" aria-label="Sumar ${step}">+${String(step).replace('.', ',')}</button>
-        </div></div>`;
 
     let fields = '';
     if (ex.type === 'peso') {
@@ -676,14 +697,7 @@
     preview();
 
     b.addEventListener('input', preview);
-    b.addEventListener('click', e => {
-      const t = e.target.closest('[data-step]');
-      if (!t) return;
-      const input = b.querySelector('#' + t.dataset.for);
-      const next = Math.max(0, Math.round(((num(input.value) || 0) + Number(t.dataset.step)) * 100) / 100);
-      input.value = inputNum(next);
-      preview();
-    });
+    bindSteppers(b, preview);
 
     b.querySelector('#mSave').onclick = () => {
       const data = read();
@@ -718,6 +732,229 @@
     };
   }
 
+  /* ═════════════ Peso corporal ═════════════ */
+  const RANGES = [
+    { id: '1m', label: '1M', days: 30 },
+    { id: '3m', label: '3M', days: 91 },
+    { id: '6m', label: '6M', days: 182 },
+    { id: '1a', label: '1A', days: 365 },
+    { id: 'all', label: 'Todo', days: 0 },
+  ];
+  let range = '3m';
+  let calMonth = null; // primer día del mes que enseña el calendario
+  const getWeight = date => state.weights.find(w => w.date === date);
+  const sortWeights = () => state.weights.sort((a, b) => a.date.localeCompare(b.date));
+  const signed = n => { const r = Math.round(n * 10) / 10; return (r > 0 ? '+' : r < 0 ? '−' : '') + fmtNum(Math.abs(r), 1); };
+
+  function renderWeight() {
+    renderWeightStats();
+    renderCal();
+    renderChart();
+  }
+
+  function renderWeightStats() {
+    const ws = state.weights, first = ws[0], last = ws[ws.length - 1];
+    $('#wStats').innerHTML = `
+      <div class="stat hot"><b>${last ? `${fmtNum(last.kg, 1)}<small>kg</small>` : '—'}</b><span>Actual</span></div>
+      <div class="stat"><b>${ws.length > 1 ? `${signed(last.kg - first.kg)}<small>kg</small>` : '—'}</b><span>Cambio</span></div>
+      <div class="stat"><b>${ws.length}</b><span>${ws.length === 1 ? 'Día' : 'Días'}</span></div>`;
+  }
+
+  function renderCal() {
+    const now = new Date(), today = todayISO();
+    if (!calMonth) calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const y = calMonth.getFullYear(), mo = calMonth.getMonth();
+    const isCurrent = y === now.getFullYear() && mo === now.getMonth();
+    const byDate = new Map(state.weights.map(w => [w.date, w]));
+    const offset = (new Date(y, mo, 1).getDay() + 6) % 7; // la semana empieza en lunes
+    const days = new Date(y, mo + 1, 0).getDate();
+    let cells = '<span></span>'.repeat(offset), n = 0;
+    for (let d = 1; d <= days; d++) {
+      const iso = `${y}-${pad(mo + 1)}-${pad(d)}`, w = byDate.get(iso);
+      if (w) n++;
+      cells += `<button class="cal-day${w ? ' has' : ''}${iso === today ? ' today' : ''}" data-date="${iso}"${iso > today ? ' disabled' : ''}
+        aria-label="${d} de ${MONTHS_LONG[mo]}${w ? `, ${fmtNum(w.kg)} kg` : ''}"><b>${d}</b>${w ? `<span>${fmtNum(w.kg, 1)}</span>` : ''}</button>`;
+    }
+    $('#cal').innerHTML = `
+      <div class="card-head">
+        <div><h2 class="card-title">${MONTHS_LONG[mo]} <span>${y}</span></h2>
+          <p class="card-sub">${n ? `${n} ${n === 1 ? 'día apuntado' : 'días apuntados'}` : 'Toca un día para apuntar tu peso'}</p></div>
+        <div class="cal-nav">
+          <button class="icon-btn" data-month="-1" aria-label="Mes anterior">${icon('back')}</button>
+          <button class="icon-btn" data-month="1" aria-label="Mes siguiente"${isCurrent ? ' disabled' : ''}>${icon('chev')}</button>
+        </div>
+      </div>
+      <div class="cal-week">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => `<span>${d}</span>`).join('')}</div>
+      <div class="cal-grid">${cells}</div>`;
+  }
+
+  function renderChart() {
+    const ws = state.weights;
+    const r = RANGES.find(x => x.id === range);
+    const from = r.days ? isoOf(new Date(Date.now() - r.days * 86400000)) : '';
+    const pts = ws.filter(w => w.date >= from);
+    let sub;
+    if (!ws.length) sub = 'Aquí verás cómo evoluciona tu peso';
+    else if (pts.length > 1) sub = `${signed(pts[pts.length - 1].kg - pts[0].kg)} kg desde el ${fmtDate(pts[0].date)}`;
+    else if (pts.length === 1) sub = 'Apunta otro día para ver la tendencia';
+    else sub = 'Sin registros en este periodo';
+    $('#chart').innerHTML = `
+      <div class="card-head"><div><h2 class="card-title">Progreso</h2><p class="card-sub">${sub}</p></div></div>
+      ${ws.length ? `<div class="seg seg-5">${RANGES.map(x => `<button class="${x.id === range ? 'on' : ''}" data-range="${x.id}">${x.label}</button>`).join('')}</div>` : ''}
+      ${!ws.length ? '<p class="chart-empty">Toca un día del calendario y apunta tu peso. Con dos días apuntados empieza la gráfica.</p>'
+        : pts.length ? '<div class="chart-wrap" id="chartWrap"></div>'
+        : '<p class="chart-empty">No hay registros en este periodo. Prueba con un rango más largo.</p>'}`;
+    const wrap = $('#chartWrap');
+    if (wrap) drawChart(wrap, pts);
+  }
+
+  // Gráfica de línea en SVG: eje de fechas real (los huecos entre días se respetan)
+  function drawChart(wrap, pts) {
+    const W = Math.max(240, Math.round(wrap.clientWidth)), H = 200;
+    const L = 38, R = 12, T = 26, B = 24;
+    const ts = pts.map(p => parseISO(p.date).getTime());
+    const t0 = ts[0], t1 = ts[ts.length - 1];
+    let lo = Math.min(...pts.map(p => p.kg)), hi = Math.max(...pts.map(p => p.kg));
+    const padV = Math.max((hi - lo) * 0.12, 0.4);
+    lo -= padV; hi += padV;
+    const step = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50].find(s => (hi - lo) / s <= 4) || 100;
+    lo = Math.floor(lo / step) * step;
+    hi = Math.ceil(hi / step) * step;
+    const X = t => t1 === t0 ? (L + W - R) / 2 : L + (t - t0) / (t1 - t0) * (W - L - R);
+    const Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+    const dec = step < 1 ? 1 : 0;
+    const tick = v => v.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const f = n => n.toFixed(1);
+
+    let grid = '';
+    for (let i = 0, n = Math.round((hi - lo) / step); i <= n; i++) {
+      const v = lo + i * step, y = f(Y(v));
+      grid += `<line class="c-grid" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="c-ax" x="${L - 8}" y="${y}" dy="4" text-anchor="end">${tick(v)}</text>`;
+    }
+
+    const P = pts.map((p, i) => [X(ts[i]), Y(p.kg)]);
+    const line = P.map(([x, y], i) => `${i ? 'L' : 'M'}${f(x)} ${f(y)}`).join('');
+    const base = H - B;
+    const area = P.length > 1 ? `${line}L${f(P[P.length - 1][0])} ${base}L${f(P[0][0])} ${base}Z` : '';
+    const dots = P.length <= 24 ? P.slice(0, -1).map(([x, y]) => `<circle class="c-dot" cx="${f(x)}" cy="${f(y)}" r="4"/>`).join('') : '';
+
+    // Valor al final de la línea, sin salirse por los bordes
+    const [lx, ly] = P[P.length - 1];
+    const anchor = lx > W - R - 28 ? 'end' : lx < L + 28 ? 'start' : 'middle';
+    const endX = anchor === 'end' ? lx + 5 : anchor === 'start' ? lx - 5 : lx;
+    const endY = ly - 12 < 16 ? ly + 26 : ly - 12;
+
+    const dateLbl = t => { const d = new Date(t); return fmtDate(isoOf(d)); };
+    let xl = '';
+    if (t1 === t0) xl = `<text class="c-ax" x="${f(X(t0))}" y="${H - 5}" text-anchor="middle">${dateLbl(t0)}</text>`;
+    else {
+      xl = `<text class="c-ax" x="${L}" y="${H - 5}" text-anchor="start">${dateLbl(t0)}</text>`
+        + `<text class="c-ax" x="${W - R}" y="${H - 5}" text-anchor="end">${dateLbl(t1)}</text>`;
+      if (W >= 300 && t1 - t0 > 6 * 86400000) xl += `<text class="c-ax" x="${f((L + W - R) / 2)}" y="${H - 5}" text-anchor="middle">${dateLbl((t0 + t1) / 2)}</text>`;
+    }
+
+    const a = pts[0], z = pts[pts.length - 1];
+    const label = pts.length > 1
+      ? `Peso: de ${fmtNum(a.kg)} kg el ${fmtDate(a.date)} a ${fmtNum(z.kg)} kg el ${fmtDate(z.date)}`
+      : `Peso: ${fmtNum(z.kg)} kg el ${fmtDate(z.date)}`;
+    wrap.innerHTML = `
+      <svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">
+        <defs><linearGradient id="wArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="c-area-top"/><stop offset="1" class="c-area-bot"/></linearGradient></defs>
+        ${grid}
+        ${area ? `<path d="${area}" fill="url(#wArea)"/><path class="c-line" d="${line}"/>` : ''}
+        ${dots}
+        <circle class="c-dot" cx="${f(lx)}" cy="${f(ly)}" r="5"/>
+        <text class="c-end" x="${f(endX)}" y="${f(endY)}" text-anchor="${anchor}">${fmtNum(z.kg)}</text>
+        ${xl}
+        <g class="c-hover" visibility="hidden"><line class="c-cross" y1="${T - 8}" y2="${base}"/><circle class="c-dot" r="5"/></g>
+      </svg>
+      <div class="tip"></div>`;
+
+    // Tocar o arrastrar sobre la gráfica: línea vertical en el día más cercano + su peso
+    const svg = wrap.querySelector('svg'), tip = wrap.querySelector('.tip');
+    const hov = svg.querySelector('.c-hover'), cross = hov.querySelector('line'), dot = hov.querySelector('circle');
+    let hideTimer = null;
+    function show(e) {
+      clearTimeout(hideTimer);
+      const rect = svg.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * W / rect.width;
+      let i = 0;
+      for (let k = 1; k < P.length; k++) if (Math.abs(P[k][0] - x) < Math.abs(P[i][0] - x)) i = k;
+      const [px, py] = P[i];
+      cross.setAttribute('x1', f(px)); cross.setAttribute('x2', f(px));
+      dot.setAttribute('cx', f(px)); dot.setAttribute('cy', f(py));
+      hov.setAttribute('visibility', 'visible');
+      const val = document.createElement('b');
+      val.textContent = `${fmtNum(pts[i].kg)} kg`;
+      tip.replaceChildren(val, document.createTextNode(fmtDate(pts[i].date)));
+      tip.classList.add('show');
+      wrap.classList.add('scrub');
+      const half = tip.offsetWidth / 2, left = px * rect.width / W;
+      tip.style.left = `${Math.min(Math.max(left, half), rect.width - half)}px`;
+    }
+    function hide() {
+      hov.setAttribute('visibility', 'hidden');
+      tip.classList.remove('show');
+      wrap.classList.remove('scrub');
+    }
+    svg.addEventListener('pointerdown', e => { try { svg.setPointerCapture(e.pointerId); } catch { /* nada */ } show(e); });
+    svg.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons) show(e); });
+    svg.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hide(); });
+    const later = e => { if (e.pointerType !== 'mouse') { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 1800); } };
+    svg.addEventListener('pointerup', later);
+    svg.addEventListener('pointercancel', later);
+  }
+
+  /* ═════════════ Formulario de peso ═════════════ */
+  function weightForm(date) {
+    const entry = getWeight(date);
+    const before = state.weights.filter(w => w.date < date);
+    const prev = before[before.length - 1] || null;
+    const base = entry || prev || state.weights[state.weights.length - 1] || null; // parte del último peso conocido
+    const d = parseISO(date);
+    const when = `${DAYS_LONG[d.getDay()]} ${d.getDate()} de ${MONTHS_LONG[d.getMonth()]}${d.getFullYear() !== new Date().getFullYear() ? ` de ${d.getFullYear()}` : ''}`;
+    const b = openSheet(`${sheetHead(entry ? 'Editar peso' : 'Apuntar peso', when)}
+      ${stepper('wKg', 'Peso <em>kg</em>', inputNum(base ? base.kg : null), 0.1)}
+      <div class="preview" id="wPrev"><span>Peso</span><b>—</b></div>
+      <div class="actions">
+        <button class="btn btn-primary" id="wSave">${entry ? 'Guardar cambios' : 'Guardar peso'}</button>
+        ${entry ? `<button class="btn btn-danger" id="wDel">${icon('trash')}Eliminar registro</button>` : ''}
+      </div>`);
+
+    const input = b.querySelector('#wKg');
+    const read = () => { const kg = num(input.value); return kg > 0 && kg < 500 ? Math.round(kg * 100) / 100 : null; };
+    function preview() {
+      const kg = read(), box = b.querySelector('#wPrev');
+      if (kg === null) { box.innerHTML = '<span>Peso</span><b>—</b>'; return; }
+      box.innerHTML = prev
+        ? `<span>Desde el ${fmtDate(prev.date)}</span><b>${signed(kg - prev.kg)} kg</b>`
+        : `<span>Primer registro</span><b>${fmtNum(kg)} kg</b>`;
+    }
+    preview();
+    input.addEventListener('input', preview);
+    bindSteppers(b, preview);
+
+    function saveWeight() {
+      const kg = read();
+      if (kg === null) { toast('Pon un peso válido'); input.focus(); return; }
+      if (entry) entry.kg = kg;
+      else { state.weights.push({ date, kg }); sortWeights(); }
+      save(); closeSheet(); renderWeight();
+      toast(entry ? 'Peso actualizado' : 'Peso guardado');
+    }
+    b.querySelector('#wSave').onclick = saveWeight;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveWeight(); } });
+
+    if (entry) b.querySelector('#wDel').onclick = () => {
+      state.weights = state.weights.filter(w => w !== entry);
+      save(); closeSheet(); renderWeight();
+      toast('Registro eliminado', {
+        action: 'Deshacer',
+        onAction: () => { if (!getWeight(entry.date)) { state.weights.push(entry); sortWeights(); save(); renderWeight(); } },
+      });
+    };
+  }
+
   /* ═════════════ Ajustes ═════════════ */
   function settings() {
     const inUse = id => state.exercises.filter(e => e.cat === id).length;
@@ -735,14 +972,14 @@
 
       <div class="field"><span class="lbl">Copia de seguridad</span>
         <div class="group">
-          <button class="link-row" id="sExport">${icon('download')}<div><b>Guardar copia</b><span>Un archivo con todos tus ejercicios y marcas</span></div>${icon('chev')}</button>
+          <button class="link-row" id="sExport">${icon('download')}<div><b>Guardar copia</b><span>Un archivo con tus ejercicios, marcas y peso</span></div>${icon('chev')}</button>
           <button class="link-row" id="sImport">${icon('upload')}<div><b>Recuperar copia</b><span>Sustituye los datos por los de un archivo</span></div>${icon('chev')}</button>
         </div>
         <p class="hint"><b style="color:var(--muted)">${backupText}.</b> Los datos se guardan solo en este móvil. Si cambias de móvil o borras el navegador, recupéralos con la copia.</p>
       </div>
 
       <div class="group">
-        <button class="link-row danger" id="sWipe">${icon('trash')}<div><b>Borrar todo</b><span>Ejercicios, marcas y categorías</span></div>${icon('chev')}</button>
+        <button class="link-row danger" id="sWipe">${icon('trash')}<div><b>Borrar todo</b><span>Ejercicios, marcas, categorías y peso</span></div>${icon('chev')}</button>
       </div>
       <p class="about">Sport Marks · v${VERSION}</p>`);
 
@@ -808,10 +1045,10 @@
     b.querySelector('#sImport').onclick = () => $('#importFile').click();
     b.querySelector('#sWipe').onclick = () => confirmSheet({
       title: '¿Borrar todo?',
-      text: 'Se eliminarán todos los ejercicios, marcas y categorías de este móvil. Si no tienes copia, no se pueden recuperar.',
+      text: 'Se eliminarán todos los ejercicios, marcas, categorías y registros de peso de este móvil. Si no tienes copia, no se pueden recuperar.',
       ok: 'Borrar todo',
       onCancel: settings,
-      onOk: () => { state = defaults(); save(); filter = 'all'; goHomeIfDetail(); renderHome(); toast('Datos borrados'); },
+      onOk: () => { state = defaults(); save(); filter = 'all'; goHomeIfDetail(); renderHome(); renderWeight(); toast('Datos borrados'); },
     });
   }
 
@@ -843,12 +1080,18 @@
     try { data = normalize(JSON.parse(await file.text())); } catch { data = null; }
     if (!data) { toast('Ese archivo no es una copia de Sport Marks'); return; }
     const marks = data.exercises.reduce((n, ex) => n + ex.marks.length, 0);
+    const days = data.weights.length;
+    const what = [
+      `${data.exercises.length} ${data.exercises.length === 1 ? 'ejercicio' : 'ejercicios'}`,
+      `${marks} ${marks === 1 ? 'marca' : 'marcas'}`,
+      ...(days ? [`${days} ${days === 1 ? 'día' : 'días'} de peso`] : []),
+    ];
     confirmSheet({
       title: '¿Recuperar copia?',
-      text: `La copia tiene ${data.exercises.length} ${data.exercises.length === 1 ? 'ejercicio' : 'ejercicios'} y ${marks} ${marks === 1 ? 'marca' : 'marcas'}. Sustituirá lo que hay ahora en la app.`,
+      text: `La copia tiene ${what.slice(0, -1).join(', ')} y ${what[what.length - 1]}. Sustituirá lo que hay ahora en la app.`,
       ok: 'Recuperar',
       onCancel: settings,
-      onOk: () => { state = data; save(); filter = 'all'; goHomeIfDetail(); renderHome(); toast('Copia recuperada'); },
+      onOk: () => { state = data; save(); filter = 'all'; goHomeIfDetail(); renderHome(); renderWeight(); toast('Copia recuperada'); },
     });
   });
 
@@ -880,9 +1123,50 @@
     setTimeout(() => { box.innerHTML = ''; }, 1500);
   }
 
+  /* ═════════════ Páginas: Marcas ⇄ Peso (se desliza o se toca la pestaña) ═════════════ */
+  const pager = $('#pager'), tabbar = $('#tabbar');
+  let page = 0, pagerRaf = 0;
+  function syncTabs() {
+    pagerRaf = 0;
+    const p = Math.min(1, Math.max(0, pager.scrollLeft / (pager.clientWidth || 1)));
+    tabbar.style.setProperty('--p', p.toFixed(3)); // el fondo de la pestaña sigue al dedo
+    const now = Math.round(p);
+    if (now === page) return;
+    page = now;
+    $$('.tab', tabbar).forEach((t, i) => {
+      t.classList.toggle('on', i === page);
+      if (i === page) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+    });
+  }
+  pager.addEventListener('scroll', () => { if (!pagerRaf) pagerRaf = requestAnimationFrame(syncTabs); }, { passive: true });
+  tabbar.addEventListener('click', e => {
+    const t = e.target.closest('[data-page]');
+    if (!t) return;
+    const i = Number(t.dataset.page);
+    const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    if (i === page) $$('.page-scroll')[i].scrollTo({ top: 0, behavior }); // tocar la pestaña activa sube arriba
+    else pager.scrollTo({ left: i * pager.clientWidth, behavior });
+  });
+  let lastWidth = innerWidth;
+  addEventListener('resize', () => {
+    pager.scrollLeft = page * pager.clientWidth;
+    if (innerWidth !== lastWidth) { lastWidth = innerWidth; renderChart(); }
+  });
+
+  $('#cal').addEventListener('click', e => {
+    const m = e.target.closest('[data-month]');
+    if (m) { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + Number(m.dataset.month), 1); renderCal(); return; }
+    const d = e.target.closest('[data-date]');
+    if (d && !d.disabled) weightForm(d.dataset.date);
+  });
+  $('#chart').addEventListener('click', e => {
+    const r = e.target.closest('[data-range]');
+    if (r) { range = r.dataset.range; renderChart(); }
+  });
+
   /* ═════════════ Eventos globales ═════════════ */
   $('#fab').addEventListener('click', () => exerciseForm());
-  $('#btnSettings').addEventListener('click', settings);
+  $$('[data-settings]').forEach(b => b.addEventListener('click', settings));
   $('#search').addEventListener('input', e => { query = e.target.value; renderHome(); });
   $('#chips').addEventListener('click', e => {
     const c = e.target.closest('.chip');
@@ -950,7 +1234,7 @@
 
   // Si cambia el día con la app abierta, refresca fechas relativas
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { renderHome(); if (currentId) renderDetail(); }
+    if (document.visibilityState === 'visible') { renderHome(); renderWeight(); if (currentId) renderDetail(); }
   });
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
@@ -959,4 +1243,5 @@
 
   route();
   renderHome(true);
+  renderWeight();
 })();

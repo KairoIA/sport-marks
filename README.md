@@ -4,7 +4,12 @@ PWA para apuntar ejercicios y marcas personales. El usuario crea sus propios eje
 
 **En vivo:** https://kairoia.github.io/sport-marks/
 
-## Qué hace (v1.0)
+## Qué hace (v1.1)
+Dos páginas que se pasan deslizando o con la barra inferior: **Marcas** y **Peso**.
+
+**Peso (v1.1, 24-sep-2026):** calendario mensual (lunes primero) donde se toca un día y se apunta el peso en kg (un registro por día, sin días futuros). Debajo, gráfica de línea con eje de fechas real, rangos 1M/3M/6M/1A/Todo y lectura del peso al tocar o arrastrar sobre ella. Arriba: peso actual, cambio desde el primer registro y días apuntados.
+
+**Marcas (v1.0):**
 - Ejercicios editables con categoría (Fuerza, Calistenia, Cardio y Movilidad, todas editables) y tipo de medida:
   peso × reps, repeticiones, tiempo, distancia u otra medida con unidad libre. En tiempo y en «otra medida» se elige si gana el valor más alto o el más bajo.
 - Marcas con fecha y nota. Calcula solo el récord personal, el progreso desde la primera marca y los récords batidos, y lanza confeti al batir uno.
@@ -25,7 +30,8 @@ PWA para apuntar ejercicios y marcas personales. El usuario crea sus propios eje
 
 ## Datos
 `localStorage`, clave `sportmarks_v1`, guardados solo en el dispositivo:
-`{ v, name, lastBackup, categories:[{id,name,color}], exercises:[{id,name,cat,type,unit,dir,created,marks:[{id,date,ts,kg,reps,secs,val,note}]}] }`.
+`{ v, name, lastBackup, categories:[{id,name,color}], exercises:[{id,name,cat,type,unit,dir,created,marks:[{id,date,ts,kg,reps,secs,val,note}]}], weights:[{date,kg}] }`.
+`weights` llegó en la v1.1; los datos y copias de la v1.0 se abren igual (sin peso).
 Las marcas llevan fecha, así que una gráfica de progreso puede salir de aquí sin migrar nada.
 
 ## Probar en local

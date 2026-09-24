@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 
@@ -36,18 +36,23 @@
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5M7 9.5l5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.5 18.5h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-scale" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 10.5a5.6 5.6 0 0 1 8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 10.5l1.6-2.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   </defs>
 </svg>
 
-<!-- ═══ INICIO ═══ -->
-<div class="view home" id="home">
+<!-- ═══ PÁGINAS: se pasa de una a otra deslizando en horizontal ═══ -->
+<div class="pager" id="pager">
+
+<!-- ═══ MARCAS ═══ -->
+<div class="page" id="pageMarks">
+<div class="view home page-scroll" id="home">
   <header class="hero">
     <div class="hero-row">
       <div>
         <p class="eyebrow" id="today"></p>
         <h1 class="hello"><span id="helloName">Juan</span><span class="hello-dot">.</span></h1>
       </div>
-      <button class="icon-btn" id="btnSettings" aria-label="Ajustes"><svg><use href="#i-gear"/></svg></button>
+      <button class="icon-btn" id="btnSettings" data-settings aria-label="Ajustes"><svg><use href="#i-gear"/></svg></button>
     </div>
     <div class="stats" id="stats"></div>
   </header>
@@ -61,9 +66,37 @@
   </div>
 
   <main class="list" id="list"></main>
-
-  <button class="fab" id="fab" aria-label="Nuevo ejercicio"><svg><use href="#i-plus"/></svg><span>Ejercicio</span></button>
 </div>
+<button class="fab" id="fab" aria-label="Nuevo ejercicio"><svg><use href="#i-plus"/></svg><span>Ejercicio</span></button>
+</div>
+
+<!-- ═══ PESO ═══ -->
+<div class="page" id="pageWeight">
+<div class="view weight page-scroll" id="weight">
+  <header class="hero">
+    <div class="hero-row">
+      <div>
+        <p class="eyebrow">Sport Marks · Peso corporal</p>
+        <h1 class="hello">Peso<span class="hello-dot">.</span></h1>
+      </div>
+      <button class="icon-btn" data-settings aria-label="Ajustes"><svg><use href="#i-gear"/></svg></button>
+    </div>
+    <div class="stats" id="wStats"></div>
+  </header>
+  <section class="card" id="cal"></section>
+  <section class="card" id="chart"></section>
+</div>
+</div>
+
+</div>
+
+<nav class="tabbar" id="tabbar" aria-label="Secciones">
+  <div class="tabbar-in">
+    <span class="tab-ind" aria-hidden="true"></span>
+    <button class="tab on" data-page="0" aria-current="page"><svg><use href="#i-dumbbell"/></svg>Marcas</button>
+    <button class="tab" data-page="1"><svg><use href="#i-scale"/></svg>Peso</button>
+  </div>
+</nav>
 
 <!-- ═══ DETALLE ═══ -->
 <section class="view detail" id="detail" aria-hidden="true"></section>
@@ -79,6 +112,6 @@
 <div class="confetti" id="confetti" aria-hidden="true"></div>
 <input type="file" id="importFile" hidden>
 
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

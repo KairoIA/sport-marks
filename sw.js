@@ -1,11 +1,11 @@
 // Service worker de Sport Marks: funciona sin conexión y se actualiza solo.
 // Al publicar cambios, sube CACHE (y el ?v= de index.html) para forzar la renovación.
-const CACHE = 'sportmarks-v1';
+const CACHE = 'sportmarks-v2';
 const CORE = [
   './',
   'index.html',
-  'styles.css?v=1',
-  'app.js?v=1',
+  'styles.css?v=2',
+  'app.js?v=2',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',
